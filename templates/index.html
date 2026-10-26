@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PriceLens MVP</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+  </head>
+  <body>
+    <div class="page-shell">
+      <header class="topbar">
+        <div class="brand-wrap">
+          <div class="brand-mark">P</div>
+          <div>
+            <p class="eyebrow">Shopping comparison prototype</p>
+            <h1>PriceLens</h1>
+          </div>
+        </div>
+        <span class="demo-badge">Demo data</span>
+      </header>
+
+      <main class="app-layout">
+        <section class="panel uploader-panel">
+          <h2>Try the product demo</h2>
+          <p>Preview an optional product photo, then enter a hint to see a mocked comparison. Images stay in your browser and are not uploaded or analyzed.</p>
+
+          <form id="scan-form">
+            <label class="upload-box" for="image-input">
+              <input id="image-input" type="file" accept="image/*" capture="environment" />
+              <span id="upload-label">Choose an optional preview image</span>
+            </label>
+
+            <div class="field-row">
+              <label class="sr-only" for="query-input">Product hint</label>
+              <input id="query-input" type="text" maxlength="200" required placeholder="Product hint: bike, sneaker, running shoe..." />
+              <button id="submit-button" type="submit">Run demo</button>
+            </div>
+          </form>
+
+          <p class="form-status" id="form-status" role="status" aria-live="polite"></p>
+
+          <div class="preview-wrap hidden" id="preview-wrap">
+            <img id="preview-image" alt="Selected preview" />
+          </div>
+        </section>
+
+        <section class="panel results-panel hidden" id="results-panel">
+          <div class="demo-notice" id="demo-notice">Sample data only — prices and availability are not live.</div>
+          <div class="result-header">
+            <div>
+              <p class="eyebrow muted">Detected item</p>
+              <h2 id="product-name">-</h2>
+            </div>
+            <div class="pill" id="product-category">-</div>
+          </div>
+
+          <div class="summary-grid">
+            <div class="summary-card main">
+              <p class="label">Estimated price</p>
+              <h3 id="product-price">-</h3>
+              <small id="product-confidence">-</small>
+            </div>
+            <div class="summary-card highlight">
+              <p class="label">Best overall deal</p>
+              <h3 id="best-deal-price">-</h3>
+              <small id="best-deal-merchant">-</small>
+            </div>
+          </div>
+
+          <div class="description-box">
+            <p id="product-description">-</p>
+            <small id="product-match-note">-</small>
+          </div>
+
+          <div class="attributes-box" id="attributes-box"></div>
+
+          <div class="matches-grid">
+            <div class="match-column">
+              <h3>Cheapest online</h3>
+              <ul id="online-list"></ul>
+            </div>
+            <div class="match-column">
+              <h3>Nearby in-person</h3>
+              <ul id="local-list"></ul>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script src="{{ url_for('static', filename='app.js') }}"></script>
+  </body>
+</html>
