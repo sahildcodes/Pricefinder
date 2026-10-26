@@ -1,6 +1,6 @@
 # PriceLens
 
-[![CI](https://github.com/sahildcodes/Pricefinder/actions/workflows/ci.yml/badge.svg)](https://github.com/sahildcodes/Pricefinder/actions/workflows/ci.yml)
+[![CI](https://github.com/sahildcodes/pricelens/actions/workflows/ci.yml/badge.svg)](https://github.com/sahildcodes/pricelens/actions/workflows/ci.yml)
 
 PriceLens is a compact product-comparison prototype built with Flask and browser-native JavaScript. It demonstrates how I structure a web system around explicit domain boundaries, deterministic behavior, testable dependencies, privacy-conscious defaults, and honest product constraints.
 
