@@ -1,23 +1,71 @@
-# PriceLens MVP
+# PriceLens
 
-PriceLens is a small Flask prototype that demonstrates a product-comparison interface. It includes an optional local image preview and a keyword-driven mock API for two sample products.
+[![CI](https://github.com/sahildcodes/Pricefinder/actions/workflows/ci.yml/badge.svg)](https://github.com/sahildcodes/Pricefinder/actions/workflows/ci.yml)
 
-> **Demo only:** Product matches, confidence scores, prices, shipping, stock, distances, stores, and recommendations are sample data. PriceLens does not currently perform image recognition, contact merchants, scrape websites, or provide live shopping information.
+PriceLens is a compact product-comparison prototype built with Flask and browser-native JavaScript. It demonstrates how I structure a web system around explicit domain boundaries, deterministic behavior, testable dependencies, privacy-conscious defaults, and honest product constraints.
 
-## How it works
+> **Scope:** This repository is an engineering prototype. Product matches, prices, stock, distances, and recommendations are fixtures—not live merchant data. The optional image is previewed locally in the browser and is never uploaded or analyzed.
 
-1. Select an optional image. The browser creates a local preview; the image is not uploaded.
-2. Enter a supported product hint such as `bike`, `running shoe`, or `sneaker`.
-3. The browser sends only the text hint to `POST /api/analyze`.
-4. Flask uses a small keyword matcher and returns one of two hard-coded sample result sets.
+## Engineering highlights
 
-## Privacy
+- **Functional core, imperative shell:** matching and comparison are framework-independent; Flask is a thin transport adapter.
+- **Immutable domain model:** frozen dataclasses prevent request-specific state from leaking across requests.
+- **Exact monetary arithmetic:** prices use integer cents internally, avoiding floating-point rounding errors.
+- **Dependency inversion:** the service depends on an `OfferRepository` protocol, so fixtures can be replaced by merchant/API adapters without changing business logic.
+- **Deterministic ranking:** keyword overlap produces reproducible results with stable tie-breaking.
+- **Versioned API:** the browser calls `/api/v1/analyze`, with structured error codes and a documented contract.
+- **Privacy by design:** selected photos remain client-side; only a bounded text query reaches the server.
+- **Defense in depth:** request limits, secure defaults, CSP and related headers, JSON validation, no-store API responses, and no debug mode by default.
+- **Layered tests:** unit tests cover tokenization, ranking, invariants, money conversion, and repository failures; integration tests cover HTTP behavior and headers.
 
-- Selected images stay in the browser and are never sent to the server.
-- The application has no database, user accounts, analytics, advertising, or tracking.
-- The API does not intentionally retain queries. Hosting providers or reverse proxies may have their own request-logging policies.
+## Architecture
 
-## Local setup
+```mermaid
+flowchart LR
+    Browser[Browser UI] -->|JSON query| Web[Flask adapter]
+    Web --> Service[PriceComparisonService]
+    Service --> Catalog[ProductCatalog]
+    Service --> Port[OfferRepository protocol]
+    Port --> Fixtures[In-memory fixture adapter]
+    Service --> Result[Immutable AnalysisResult]
+    Result --> Presenter[JSON presenter]
+    Presenter --> Web
+```
+
+The web layer validates transport concerns, the service owns the use case, and the domain layer enforces invariants. See [docs/architecture.md](docs/architecture.md) for design rationale, complexity, failure behavior, and a production evolution path.
+
+## Matching algorithm
+
+The catalog normalizes the query into unique lowercase alphanumeric tokens. Each product is scored by set intersection with its keyword set. The highest positive score wins; catalog order is the deterministic tie-breaker.
+
+For `P` products, `Q` unique query tokens, and at most `K` keywords per product:
+
+- Tokenization: `O(|query|)`
+- Ranking: `O(P × min(Q, K))` average-case set operations
+- Offer partitioning and minimum selection: `O(O)`, where `O` is the number of offers
+- Additional working memory: `O(Q + O)`
+
+This deliberately simple algorithm is appropriate for a tiny fixture catalog. A larger system would replace the catalog adapter with indexed retrieval or embedding search while preserving the service boundary.
+
+## Project structure
+
+```text
+app.py                    Local development entry point
+pricelens/
+  __init__.py             Application factory and security policy
+  domain.py               Immutable entities and invariants
+  catalog.py              Tokenization and deterministic matching
+  repository.py           OfferRepository port and fixture adapter
+  service.py              Comparison use case
+  presenter.py            Domain-to-JSON boundary
+  data.py                 Explicit demo fixtures and dependency wiring
+templates/index.html      Accessible UI structure
+static/                   Browser behavior and responsive styling
+tests/                    Unit and HTTP integration tests
+docs/architecture.md      Design rationale and evolution path
+```
+
+## Run locally
 
 Python 3.12 or newer is recommended.
 
@@ -29,44 +77,76 @@ python -m pip install -r requirements.txt
 python app.py
 ```
 
-Open <http://127.0.0.1:5000>.
+Open <http://127.0.0.1:5000>. Optional local variables are documented in `.env.example`; the application does not automatically load that file.
 
-Optional local environment variables are documented in `.env.example`. The app does not automatically load that file.
+## API contract
 
-## API
-
-`POST /api/analyze`
+### `POST /api/v1/analyze`
 
 ```json
 {
-  "query": "running shoe"
+  "query": "road running shoe"
 }
 ```
 
-The request must be JSON, the query is required, and its maximum length is 200 characters. Responses contain a `demo` notice identifying the data as non-live sample content.
+Successful responses identify their version and fixture source:
 
-The mock matcher currently recognizes `bike`, `road`, `bicycle`, `shoe`, `sneaker`, and `running`. Other hints return a validation response instead of inventing a match.
+```json
+{
+  "meta": {
+    "api_version": "1",
+    "data_source": "fixtures"
+  },
+  "demo": {
+    "enabled": true
+  },
+  "product": {},
+  "results": {},
+  "recommendation": {}
+}
+```
 
-`GET /health` returns basic service health information.
+Errors have a stable machine-readable shape:
 
-## Tests
+```json
+{
+  "error": {
+    "code": "no_match",
+    "message": "No sample match..."
+  }
+}
+```
+
+The query is required, must be a string, and is limited to 200 characters. The mock catalog recognizes bike/cycling and running-shoe vocabulary. `GET /health` provides a minimal liveness endpoint.
+
+## Tests and continuous integration
 
 ```bash
 python -m unittest discover -s tests -v
 ```
 
-GitHub Actions runs the same tests on supported Python versions.
+GitHub Actions runs the full suite on Python 3.12 and 3.13 for every push and pull request. Dependabot checks both Python and GitHub Actions dependencies weekly.
 
-## Deployment
+## Security and privacy
 
-`python app.py` starts Flask's development server and is intended only for local use. For internet deployment, use a maintained production WSGI server and configure TLS, request logging, proxy limits, monitoring, and any platform-specific security controls.
+- Images use browser object URLs and never cross the network boundary.
+- API requests are JSON-only, capped at 64 KiB, and never cached.
+- Dynamic UI strings use `textContent` rather than HTML interpolation.
+- External links are fixed fixture data and open with `noopener`.
+- Flask debug mode and non-loopback binding are opt-in, never defaults.
+- The repository excludes environments, secrets, caches, and OS metadata.
 
-Debug mode is disabled by default. Never enable it on an internet-accessible deployment.
+Production deployment would additionally require a production WSGI server, TLS termination, platform-level rate limiting, structured telemetry, secret management, and live data-provider controls.
 
-## Data and trademark notice
+## Intentional tradeoffs
 
-Merchant names, product names, and trademarks belong to their respective owners. Their appearance in this prototype is for illustrative identification only and does not imply affiliation or endorsement. Sample prices and availability should not be used to make purchasing decisions.
+- **No fake AI:** the repository does not claim computer vision or live search that it does not implement.
+- **No premature database:** immutable fixtures keep the current data boundary obvious; the repository protocol marks the replacement point.
+- **No microservices:** one process is the correct operational shape for this scope.
+- **No frontend framework:** the interaction is small enough for accessible, dependency-free JavaScript.
 
 ## License
 
-PriceLens is source-available under the PolyForm Noncommercial License 1.0.0. You may use, modify, and share it for permitted noncommercial purposes. Commercial use requires separate permission from the copyright holder. See `LICENSE` for the controlling terms.
+PriceLens is source-available under the PolyForm Noncommercial License 1.0.0. You may use, modify, and share it for permitted noncommercial purposes. Commercial use requires separate permission from the copyright holder. See [LICENSE](LICENSE) for the controlling terms.
+
+Merchant and product names belong to their respective owners. Their appearance in fixture data does not imply affiliation or endorsement.

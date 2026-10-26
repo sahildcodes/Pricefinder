@@ -112,7 +112,7 @@ form.addEventListener('submit', async (event) => {
   submitButton.disabled = true;
 
   try {
-    const response = await fetch('/api/analyze', {
+    const response = await fetch('/api/v1/analyze', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
@@ -122,7 +122,7 @@ form.addEventListener('submit', async (event) => {
 
     const data = await response.json();
     if (!response.ok) {
-      throw new Error(data.error || 'The demo request failed.');
+      throw new Error(data.error?.message || 'The demo request failed.');
     }
 
     const product = data.product;
